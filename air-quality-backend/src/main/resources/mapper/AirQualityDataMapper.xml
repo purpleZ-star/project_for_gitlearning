@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.airquality.mapper.AirQualityDataMapper">
+
+    <resultMap id="airQualityResultMap" type="AirQualityData">
+        <id column="id" property="id"/>
+        <result column="city_id" property="cityId"/>
+        <result column="aqi" property="aqi"/>
+        <result column="quality_level" property="qualityLevel"/>
+        <result column="primary_pollutant" property="primaryPollutant"/>
+        <result column="pm25" property="pm25"/>
+        <result column="pm10" property="pm10"/>
+        <result column="so2" property="so2"/>
+        <result column="no2" property="no2"/>
+        <result column="co" property="co"/>
+        <result column="o3" property="o3"/>
+        <result column="temperature" property="temperature"/>
+        <result column="humidity" property="humidity"/>
+        <result column="wind_speed" property="windSpeed"/>
+        <result column="wind_direction" property="windDirection"/>
+        <result column="monitor_time" property="monitorTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="city_name" property="cityName"/>
+        <result column="province" property="province"/>
+    </resultMap>
+
+    <select id="findByCondition" resultMap="airQualityResultMap">
+        SELECT a.*, c.city_name, c.province
+        FROM air_quality_data a
+        LEFT JOIN city c ON a.city_id = c.id
+        <where>
+            <if test="cityId != null">AND a.city_id = #{cityId}</if>
+            <if test="cityName != null and cityName != ''">
+                AND c.city_name LIKE CONCAT('%', #{cityName}, '%')
+            </if>
+            <if test="qualityLevel != null and qualityLevel != ''">
+                AND a.quality_level = #{qualityLevel}
+            </if>
+            <if test="startTime != null and startTime != ''">
+                AND a.monitor_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null and endTime != ''">
+                AND a.monitor_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY a.monitor_time DESC
+    </select>
+
+    <select id="findById" resultMap="airQualityResultMap">
+        SELECT a.*, c.city_name, c.province
+        FROM air_quality_data a
+        LEFT JOIN city c ON a.city_id = c.id
+        WHERE a.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO air_quality_data(city_id, aqi, quality_level, primary_pollutant,
+            pm25, pm10, so2, no2, co, o3, temperature, humidity, wind_speed, wind_direction,
+            monitor_time, create_time)
+        VALUES(#{cityId}, #{aqi}, #{qualityLevel}, #{primaryPollutant},
+            #{pm25}, #{pm10}, #{so2}, #{no2}, #{co}, #{o3}, #{temperature}, #{humidity},
+            #{windSpeed}, #{windDirection}, #{monitorTime}, NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE air_quality_data
+        <set>
+            <if test="aqi != null">aqi = #{aqi},</if>
+            <if test="qualityLevel != null">quality_level = #{qualityLevel},</if>
+            <if test="primaryPollutant != null">primary_pollutant = #{primaryPollutant},</if>
+            <if test="pm25 != null">pm25 = #{pm25},</if>
+            <if test="pm10 != null">pm10 = #{pm10},</if>
+            <if test="so2 != null">so2 = #{so2},</if>
+            <if test="no2 != null">no2 = #{no2},</if>
+            <if test="co != null">co = #{co},</if>
+            <if test="o3 != null">o3 = #{o3},</if>
+            <if test="temperature != null">temperature = #{temperature},</if>
+            <if test="humidity != null">humidity = #{humidity},</if>
+            <if test="windSpeed != null">wind_speed = #{windSpeed},</if>
+            <if test="windDirection != null">wind_direction = #{windDirection},</if>
+            <if test="monitorTime != null">monitor_time = #{monitorTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM air_quality_data WHERE id = #{id}
+    </delete>
+
+    <select id="findLatestByCity" resultMap="airQualityResultMap">
+        SELECT a.*, c.city_name, c.province
+        FROM air_quality_data a
+        INNER JOIN city c ON a.city_id = c.id
+        INNER JOIN (
+            SELECT city_id, MAX(monitor_time) AS max_time
+            FROM air_quality_data
+            GROUP BY city_id
+        ) latest ON a.city_id = latest.city_id AND a.monitor_time = latest.max_time
+        ORDER BY a.aqi DESC
+    </select>
+
+    <select id="findTrendData" resultMap="airQualityResultMap">
+        SELECT a.*, c.city_name, c.province
+        FROM air_quality_data a
+        LEFT JOIN city c ON a.city_id = c.id
+        WHERE a.city_id = #{cityId}
+          AND a.monitor_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        ORDER BY a.monitor_time ASC
+    </select>
+
+    <select id="countByQualityLevel" resultType="com.airquality.dto.StatisticsDTO">
+        SELECT quality_level AS name, COUNT(*) AS value
+        FROM air_quality_data
+        GROUP BY quality_level
+        ORDER BY value DESC
+    </select>
+
+    <select id="rankByAvgAqi" resultType="java.util.Map">
+        SELECT c.city_name AS cityName, ROUND(AVG(a.aqi), 1) AS avgAqi
+        FROM air_quality_data a
+        LEFT JOIN city c ON a.city_id = c.id
+        GROUP BY a.city_id, c.city_name
+        ORDER BY avgAqi ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM air_quality_data
+    </select>
+
+    <select id="countToday" resultType="int">
+        SELECT COUNT(*) FROM air_quality_data
+        WHERE DATE(monitor_time) = CURDATE()
+    </select>
+
+    <select id="avgPollutants" resultType="java.util.Map">
+        SELECT
+            ROUND(AVG(pm25), 1) AS avgPm25,
+            ROUND(AVG(pm10), 1) AS avgPm10,
+            ROUND(AVG(so2), 1) AS avgSo2,
+            ROUND(AVG(no2), 1) AS avgNo2,
+            ROUND(AVG(co), 2) AS avgCo,
+            ROUND(AVG(o3), 1) AS avgO3,
+            ROUND(AVG(aqi), 0) AS avgAqi
+        FROM air_quality_data
+    </select>
+
+    <insert id="batchInsert">
+        INSERT INTO air_quality_data(city_id, aqi, quality_level, primary_pollutant,
+            pm25, pm10, so2, no2, co, o3, temperature, humidity, wind_speed, wind_direction,
+            monitor_time, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.cityId}, #{item.aqi}, #{item.qualityLevel}, #{item.primaryPollutant},
+            #{item.pm25}, #{item.pm10}, #{item.so2}, #{item.no2}, #{item.co}, #{item.o3},
+            #{item.temperature}, #{item.humidity}, #{item.windSpeed}, #{item.windDirection},
+            #{item.monitorTime}, NOW())
+        </foreach>
+    </insert>
+</mapper>
