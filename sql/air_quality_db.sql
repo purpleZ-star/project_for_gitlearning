@@ -4,6 +4,14 @@ CREATE DATABASE IF NOT EXISTS air_quality_db DEFAULT CHARACTER SET utf8mb4 COLLA
 
 USE air_quality_db;
 
+-- 关键：设置连接字符集为 utf8mb4，解决 Windows 下中文乱码/截断问题
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+SET character_set_connection = utf8mb4;
+
+-- 关闭外键检查，避免删除顺序导致的错误
+SET FOREIGN_KEY_CHECKS = 0;
+
 -- ----------------------------
 -- 用户表
 -- ----------------------------
@@ -15,11 +23,11 @@ CREATE TABLE sys_user (
     real_name VARCHAR(50) COMMENT '真实姓名',
     phone VARCHAR(20) COMMENT '手机号',
     email VARCHAR(100) COMMENT '邮箱',
-    role INT DEFAULT 0 COMMENT '角色：0-普通用户，1-管理员',
-    status INT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+    role INT DEFAULT 0 COMMENT '角色: 0-普通用户 1-管理员',
+    status INT DEFAULT 1 COMMENT '状态: 0-禁用 1-启用',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统用户表';
 
 -- ----------------------------
 -- 城市表
@@ -33,7 +41,7 @@ CREATE TABLE city (
     latitude DOUBLE COMMENT '纬度',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='城市表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='城市表';
 
 -- ----------------------------
 -- 监测站点表
@@ -47,11 +55,11 @@ CREATE TABLE monitor_station (
     address VARCHAR(200) COMMENT '详细地址',
     longitude DOUBLE COMMENT '经度',
     latitude DOUBLE COMMENT '纬度',
-    status INT DEFAULT 1 COMMENT '状态：0-停用，1-运行中',
+    status INT DEFAULT 1 COMMENT '状态: 0-停用 1-运行中',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (city_id) REFERENCES city(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='监测站点表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='监测站点表';
 
 -- ----------------------------
 -- 空气质量数据表
@@ -63,15 +71,15 @@ CREATE TABLE air_quality_data (
     aqi INT COMMENT 'AQI指数',
     quality_level VARCHAR(20) COMMENT '空气质量等级',
     primary_pollutant VARCHAR(20) COMMENT '首要污染物',
-    pm25 DOUBLE COMMENT 'PM2.5浓度(μg/m³)',
-    pm10 DOUBLE COMMENT 'PM10浓度(μg/m³)',
-    so2 DOUBLE COMMENT 'SO2浓度(μg/m³)',
-    no2 DOUBLE COMMENT 'NO2浓度(μg/m³)',
-    co DOUBLE COMMENT 'CO浓度(mg/m³)',
-    o3 DOUBLE COMMENT 'O3浓度(μg/m³)',
-    temperature DOUBLE COMMENT '温度(℃)',
-    humidity DOUBLE COMMENT '湿度(%)',
-    wind_speed DOUBLE COMMENT '风速(m/s)',
+    pm25 DOUBLE COMMENT 'PM2.5浓度',
+    pm10 DOUBLE COMMENT 'PM10浓度',
+    so2 DOUBLE COMMENT 'SO2浓度',
+    no2 DOUBLE COMMENT 'NO2浓度',
+    co DOUBLE COMMENT 'CO浓度',
+    o3 DOUBLE COMMENT 'O3浓度',
+    temperature DOUBLE COMMENT '温度',
+    humidity DOUBLE COMMENT '湿度',
+    wind_speed DOUBLE COMMENT '风速',
     wind_direction VARCHAR(10) COMMENT '风向',
     monitor_time DATETIME NOT NULL COMMENT '监测时间',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -79,10 +87,13 @@ CREATE TABLE air_quality_data (
     INDEX idx_monitor_time (monitor_time),
     INDEX idx_city_time (city_id, monitor_time),
     FOREIGN KEY (city_id) REFERENCES city(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='空气质量数据表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='空气质量数据表';
+
+-- 恢复外键检查
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- ----------------------------
--- 初始化管理员用户（密码：admin123 的MD5值）
+-- 初始化管理员用户 (密码: admin123 的MD5值)
 -- ----------------------------
 INSERT INTO sys_user (username, password, real_name, role, status) VALUES
 ('admin', 'f6fdffe48c908deb0f4c3bd36c032e72', '系统管理员', 1, 1),
@@ -129,9 +140,10 @@ INSERT INTO monitor_station (station_name, station_code, city_id, address, longi
 ('南京玄武湖站', 'NJ001', 8, '南京市玄武区', 118.7949, 32.0759, 1);
 
 -- ----------------------------
--- 初始化空气质量模拟数据（最近30天）
+-- 初始化空气质量模拟数据(最近30天)
 -- ----------------------------
--- 使用存储过程批量生成数据
+DROP PROCEDURE IF EXISTS generate_air_quality_data;
+
 DELIMITER //
 CREATE PROCEDURE generate_air_quality_data()
 BEGIN
@@ -148,9 +160,9 @@ BEGIN
     DECLARE v_temp DOUBLE;
     DECLARE v_humidity DOUBLE;
     DECLARE v_wind_speed DOUBLE;
-    DECLARE v_level VARCHAR(20);
-    DECLARE v_pollutant VARCHAR(20);
-    DECLARE v_wind_dir VARCHAR(10);
+    DECLARE v_level VARCHAR(50) CHARACTER SET utf8mb4;
+    DECLARE v_pollutant VARCHAR(20) CHARACTER SET utf8mb4;
+    DECLARE v_wind_dir VARCHAR(20) CHARACTER SET utf8mb4;
     DECLARE v_monitor_time DATETIME;
 
     WHILE v_city_id <= 20 DO
@@ -159,7 +171,6 @@ BEGIN
             SET v_hour = 0;
             WHILE v_hour < 24 DO
                 IF v_hour % 6 = 0 THEN
-                    -- 基于城市生成不同范围的AQI
                     SET v_aqi = FLOOR(20 + RAND() * 280 * (1 + (v_city_id % 5) * 0.1));
                     IF v_aqi > 500 THEN SET v_aqi = 500; END IF;
 
@@ -173,16 +184,26 @@ BEGIN
                     SET v_humidity = ROUND(30 + RAND() * 60, 1);
                     SET v_wind_speed = ROUND(0.5 + RAND() * 8, 1);
 
-                    -- 根据AQI判断等级
-                    IF v_aqi <= 50 THEN SET v_level = '优'; SET v_pollutant = '-';
-                    ELSEIF v_aqi <= 100 THEN SET v_level = '良'; SET v_pollutant = 'PM2.5';
-                    ELSEIF v_aqi <= 150 THEN SET v_level = '轻度污染'; SET v_pollutant = 'PM2.5';
-                    ELSEIF v_aqi <= 200 THEN SET v_level = '中度污染'; SET v_pollutant = 'PM10';
-                    ELSEIF v_aqi <= 300 THEN SET v_level = '重度污染'; SET v_pollutant = 'PM2.5';
-                    ELSE SET v_level = '严重污染'; SET v_pollutant = 'PM2.5';
+                    IF v_aqi <= 50 THEN
+                        SET v_level = '优';
+                        SET v_pollutant = '-';
+                    ELSEIF v_aqi <= 100 THEN
+                        SET v_level = '良';
+                        SET v_pollutant = 'PM2.5';
+                    ELSEIF v_aqi <= 150 THEN
+                        SET v_level = '轻度污染';
+                        SET v_pollutant = 'PM2.5';
+                    ELSEIF v_aqi <= 200 THEN
+                        SET v_level = '中度污染';
+                        SET v_pollutant = 'PM10';
+                    ELSEIF v_aqi <= 300 THEN
+                        SET v_level = '重度污染';
+                        SET v_pollutant = 'PM2.5';
+                    ELSE
+                        SET v_level = '严重污染';
+                        SET v_pollutant = 'PM2.5';
                     END IF;
 
-                    -- 随机风向
                     SET v_wind_dir = ELT(FLOOR(1 + RAND() * 8), '北', '东北', '东', '东南', '南', '西南', '西', '西北');
 
                     SET v_monitor_time = DATE_SUB(NOW(), INTERVAL v_day DAY) + INTERVAL v_hour HOUR;
@@ -205,4 +226,6 @@ DELIMITER ;
 CALL generate_air_quality_data();
 DROP PROCEDURE IF EXISTS generate_air_quality_data;
 
-SELECT CONCAT('数据初始化完成！共插入空气质量数据 ', COUNT(*), ' 条') AS result FROM air_quality_data;
+SELECT CONCAT('init done, air_quality_data count = ', COUNT(*)) AS result FROM air_quality_data;
+SELECT COUNT(*) AS city_count FROM city;
+SELECT COUNT(*) AS user_count FROM sys_user;
