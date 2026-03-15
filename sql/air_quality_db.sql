@@ -96,8 +96,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 初始化管理员用户 (密码: admin123 的MD5值)
 -- ----------------------------
 INSERT INTO sys_user (username, password, real_name, role, status) VALUES
-('admin', 'f6fdffe48c908deb0f4c3bd36c032e72', '系统管理员', 1, 1),
-('user1', 'f6fdffe48c908deb0f4c3bd36c032e72', '普通用户', 0, 1);
+('admin', '0192023a7bbd73250516f069df18b500', '系统管理员', 1, 1),
+('user1', '0192023a7bbd73250516f069df18b500', '普通用户', 0, 1);
 
 -- ----------------------------
 -- 初始化城市数据
