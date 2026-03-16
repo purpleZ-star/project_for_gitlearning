@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.airquality.mapper.MonitorStationMapper">
+
+    <resultMap id="stationResultMap" type="MonitorStation">
+        <id column="id" property="id"/>
+        <result column="station_name" property="stationName"/>
+        <result column="station_code" property="stationCode"/>
+        <result column="city_id" property="cityId"/>
+        <result column="address" property="address"/>
+        <result column="longitude" property="longitude"/>
+        <result column="latitude" property="latitude"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="city_name" property="cityName"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="stationResultMap">
+        SELECT s.*, c.city_name
+        FROM monitor_station s
+        LEFT JOIN city c ON s.city_id = c.id
+        ORDER BY s.create_time DESC
+    </select>
+
+    <select id="findByKeyword" resultMap="stationResultMap">
+        SELECT s.*, c.city_name
+        FROM monitor_station s
+        LEFT JOIN city c ON s.city_id = c.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (s.station_name LIKE CONCAT('%', #{keyword}, '%')
+                OR s.station_code LIKE CONCAT('%', #{keyword}, '%')
+                OR c.city_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY s.create_time DESC
+    </select>
+
+    <select id="findById" resultMap="stationResultMap">
+        SELECT s.*, c.city_name
+        FROM monitor_station s
+        LEFT JOIN city c ON s.city_id = c.id
+        WHERE s.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO monitor_station(station_name, station_code, city_id, address,
+            longitude, latitude, status, create_time, update_time)
+        VALUES(#{stationName}, #{stationCode}, #{cityId}, #{address},
+            #{longitude}, #{latitude}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE monitor_station
+        <set>
+            <if test="stationName != null">station_name = #{stationName},</if>
+            <if test="stationCode != null">station_code = #{stationCode},</if>
+            <if test="cityId != null">city_id = #{cityId},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM monitor_station WHERE id = #{id}
+    </delete>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM monitor_station
+    </select>
+</mapper>
